@@ -10,90 +10,102 @@ class WarathaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'ورثة',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal),
-      home: const HomePage(),
+      home: const CalculatorPage(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class CalculatorPage extends StatefulWidget {
+  const CalculatorPage({super.key});
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<CalculatorPage> createState() => _CalculatorPageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  final estateController = TextEditingController();
-  bool hasHusband = false;
-  bool hasWife = false;
+class _CalculatorPageState extends State<CalculatorPage> {
+  final estateCtrl = TextEditingController();
+  int wives = 0;
+  bool husband = false;
+  bool father = false;
+  bool mother = false;
   int sons = 0;
   int daughters = 0;
   String result = '';
 
-  void calculate() {
-    double estate = double.tryParse(estateController.text) ?? 0;
-    if (estate <= 0) {
-      setState(() => result = 'اكتب قيمة التركة');
-      return;
-    }
+  void calc() {
+    double estate = double.tryParse(estateCtrl.text) ?? 0;
+    if (estate <= 0) { setState(()=> result = 'اكتب قيمة التركة'); return; }
+    
     double remaining = estate;
-    String res = '';
+    Map<String, double> shares = {};
     
-    if (hasHusband) {
-      double share = estate * 0.25;
-      res += 'الزوج: ربع = $share\n';
-      remaining -= share;
+    if (mother) {
+      double s = (sons>0||daughters>0) ? estate/6 : estate/3;
+      shares['الأم'] = s; remaining -= s;
     }
-    if (hasWife) {
-      double share = estate * 0.125;
-      res += 'الزوجة: ثمن = $share\n';
-      remaining -= share;
+    if (father && (sons>0||daughters>0)) {
+      double s = estate/6;
+      shares['الأب'] = s; remaining -= s;
     }
-    
-    int totalParts = sons * 2 + daughters;
-    if (totalParts > 0) {
-      double partValue = remaining / totalParts;
-      if (sons > 0) res += 'لكل ابن: ${partValue * 2}\n';
-      if (daughters > 0) res += 'لكل بنت: $partValue\n';
-      res += '\nالباقي تم توزيعه تعصيبا';
-    } else {
-      res += 'الباقي: $remaining يوزع على باقي الورثة';
+    if (wives>0) {
+      double s = (sons>0||daughters>0) ? estate/8 : estate/4;
+      shares['الزوجات'] = s; remaining -= s;
+    }
+    if (husband) {
+      double s = (sons>0||daughters>0) ? estate/4 : estate/2;
+      shares['الزوج'] = s; remaining -= s;
     }
     
-    setState(() => result = res);
+    if (daughters>0 && sons==0) {
+      double s = daughters==1 ? estate*0.5 : estate*(2/3);
+      shares['البنات'] = s; remaining -= s;
+    }
+    
+    int parts = sons*2 + daughters;
+    if (parts>0 && sons>0) {
+      double pv = remaining/parts;
+      if (sons>0) shares['نصيب الابن'] = pv*2;
+      if (daughters>0) shares['نصيب البنت'] = pv;
+      remaining = 0;
+    }
+    
+    if (remaining>0 && father) {
+      shares['الأب (الباقي)'] = (shares['الأب (الباقي)']??0)+remaining;
+      remaining=0;
+    }
+
+    StringBuffer b = StringBuffer();
+    b.writeln('التركة: $estate\n');
+    shares.forEach((k,v)=> b.writeln('$k = ${v.toStringAsFixed(2)}'));
+    if (remaining>1) b.writeln('الباقي: ${remaining.toStringAsFixed(2)}');
+    setState(()=> result=b.toString());
   }
+
+  Widget counter(String t,int v,Function(int) onC)=> Card(child: ListTile(
+    title: Text(t),
+    trailing: Row(mainAxisSize: MainAxisSize.min,children:[
+      IconButton(onPressed:()=> onC(v>0?v-1:0),icon: const Icon(Icons.remove)),
+      Text('$v',style: const TextStyle(fontWeight: FontWeight.bold)),
+      IconButton(onPressed:()=> onC(v+1),icon: const Icon(Icons.add)),
+    ]),
+  ));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ورثة - حاسبة المواريث'), centerTitle: true),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: estateController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'قيمة التركة', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 16),
-          CheckboxListTile(title: const Text('زوج موجود'), value: hasHusband, onChanged: (v) => setState(() => hasHusband = v!)),
-          CheckboxListTile(title: const Text('زوجة موجودة'), value: hasWife, onChanged: (v) => setState(() => hasWife = v!)),
-          ListTile(title: const Text('عدد الأبناء الذكور'), trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            IconButton(onPressed: () => setState(() => sons = sons > 0 ? sons - 1 : 0), icon: const Icon(Icons.remove)),
-            Text('$sons'),
-            IconButton(onPressed: () => setState(() => sons++), icon: const Icon(Icons.add)),
-          ])),
-          ListTile(title: const Text('عدد البنات'), trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            IconButton(onPressed: () => setState(() => daughters = daughters > 0 ? daughters - 1 : 0), icon: const Icon(Icons.remove)),
-            Text('$daughters'),
-            IconButton(onPressed: () => setState(() => daughters++), icon: const Icon(Icons.add)),
-          ])),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: calculate, child: const Text('احسب الميراث')),
-          const SizedBox(height: 20),
-          if (result.isNotEmpty)
-            Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(12)), child: Text(result, style: const TextStyle(fontSize: 18))),
-        ],
-      ),
+      appBar: AppBar(title: const Text('وَرَثَة'), centerTitle:true, backgroundColor: Colors.teal, foregroundColor: Colors.white),
+      body: ListView(padding: const EdgeInsets.all(12), children:[
+        TextField(controller: estateCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText:'قيمة التركة', border: OutlineInputBorder())),
+        counter('عدد الزوجات',wives,(x)=> setState(()=>wives=x)),
+        SwitchListTile(title: const Text('زوج'), value: husband, onChanged:(x)=> setState(()=>husband=x)),
+        SwitchListTile(title: const Text('أب'), value: father, onChanged:(x)=> setState(()=>father=x)),
+        SwitchListTile(title: const Text('أم'), value: mother, onChanged:(x)=> setState(()=>mother=x)),
+        counter('أبناء ذكور',sons,(x)=> setState(()=>sons=x)),
+        counter('بنات',daughters,(x)=> setState(()=>daughters=x)),
+        const SizedBox(height:12),
+        ElevatedButton(style:ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(50)), onPressed: calc, child: const Text('احسب', style: TextStyle(fontSize:18))),
+        const SizedBox(height:12),
+        if(result.isNotEmpty) Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(10)), child: Text(result, textDirection: TextDirection.rtl, style: const TextStyle(fontSize:16))),
+      ]),
     );
   }
 }
