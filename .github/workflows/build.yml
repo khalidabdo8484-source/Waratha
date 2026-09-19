@@ -9,7 +9,7 @@ jobs:
         with:
           flutter-version: '3.22.0'
       - run: cp lib/main.dart /tmp/main.dart
-      - run: flutter create. --project-name waratha
+      - run: flutter create . --project-name waratha
       - run: cp /tmp/main.dart lib/main.dart
       - run: flutter pub get
       - run: flutter build apk --release
